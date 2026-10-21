@@ -171,7 +171,7 @@ evaluated on all 300 dev claims.
 
 | Evidence shown to the verifier | evidence recall@5 | accuracy | macro-F1 | citation precision | rationale precision |
 |---|---:|---:|---:|---:|---:|
-| none (always NEI) | — | 37.3% | 0.181 | — | — |
+| none (always NEI) | n/a | 37.3% | 0.181 | n/a | n/a |
 | BM25 top-5 | 0.883 | **58.3%** | **0.551** | **77.1%** | 56.1% |
 | **Sift top-5** (production pipeline) | **0.935** | 58.0% | 0.547 | 76.2% | **57.6%** |
 | oracle (gold abstracts) | 1.000 | 63.3% | 0.595 | 100% | 62.3% |
