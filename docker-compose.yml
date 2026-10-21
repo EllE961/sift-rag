@@ -1,0 +1,13 @@
+services:
+  sift:
+    build: .
+    ports:
+      - "8002:8002"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - SIFT_LLM_MODEL=${SIFT_LLM_MODEL:-claude-opus-5}
+    volumes:
+      - sift-data:/app/data
+      - ./results:/app/results:ro
+volumes:
+  sift-data:
