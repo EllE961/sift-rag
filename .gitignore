@@ -1,0 +1,21 @@
+# data, caches, indexes (rebuilt from public sources)
+data/
+logs/
+*.part
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
