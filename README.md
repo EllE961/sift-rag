@@ -23,11 +23,12 @@ native citations, so every sentence of an answer points at an exact character sp
 - BM25 with my own Porter stemmer scores 0.677 nDCG@10 on SciFact and 0.321 on NFCorpus, against
   Anserini's published 0.679 and 0.322. The stemmer agrees with NLTK's reference on all 40,079 corpus
   words.
-- Hybrid retrieval beats both of its inputs: 0.736 on SciFact (convex fusion, weight tuned on train)
-  vs 0.677 for BM25 and 0.713 for dense, and 0.366 on NFCorpus vs 0.321 and 0.343.
+- Hybrid retrieval beats both of its inputs. With convex fusion (weight tuned on train) it scores 0.736
+  on SciFact vs 0.677 for BM25 and 0.713 for dense, and 0.366 on NFCorpus vs 0.321 and 0.343.
 - The most interesting result: an off-the-shelf MS MARCO cross-encoder makes a strong hybrid first
   stage *worse* on both datasets, and the deeper it reranks the worse it gets. Blending its score with
-  the first-stage score (weight tuned on train) turns that loss into the best NFCorpus result.
+  the first-stage score (weight tuned on train) turns that loss into a small gain, and on NFCorpus it
+  ties convex fusion for the best result (0.367 vs 0.366).
 - HNSW written from scratch in numba. On 79,036 real sentence embeddings it's 10.1× faster than exact
   search at recall@10 ≥ 0.95 (1,266 vs 125 queries/s, single-threaded) and touches 2.1% of the
   vectors per query. The benchmark also shows where exact search still wins (around 5k vectors).
@@ -99,12 +100,12 @@ splits are never used for tuning.
 | BM25 (k1=0.9, b=0.4) | 0.677 | 0.929 | 0.321 | 0.246 |
 | Dense · all-MiniLM-L6-v2 | 0.646 | 0.925 | 0.316 | 0.312 |
 | Dense · bge-small-en-v1.5 | 0.713 | 0.942 | 0.343 | 0.311 |
-| Dense · bge-small, **my HNSW** (ef=128) | 0.713 | 0.945 | 0.343 | 0.313 |
+| Dense · bge-small, **my HNSW** (ef=128) | 0.713 | 0.945 | 0.344 | 0.313 |
 | Hybrid · RRF (k=60) | 0.722 | **0.968** | 0.362 | 0.311 |
-| Hybrid · convex (α tuned on train) | **0.736** | 0.967 | 0.360 | **0.314** |
+| Hybrid · convex (α tuned on train) | **0.736** | 0.967 | 0.366 | **0.314** |
 | BM25 → cross-encoder | 0.688 | 0.929 | 0.350 | 0.246 |
 | Hybrid RRF → cross-encoder | 0.688 | 0.968 | 0.352 | 0.311 |
-| Hybrid RRF → cross-encoder, **blended** (w tuned on train) | 0.729 | 0.968 | **0.366** | 0.311 |
+| Hybrid RRF → cross-encoder, **blended** (w tuned on train) | 0.729 | 0.968 | **0.367** | 0.311 |
 
 Reference points:
 - Published BM25: SciFact 0.665 (BEIR, Elasticsearch) and 0.679 (Anserini); NFCorpus 0.325 and 0.322.
@@ -116,7 +117,7 @@ Reference points:
 
 <img src="docs/assets/rerank.png" alt="Left: nDCG change vs number of reranked candidates; middle: rerank latency; right: blend weight sweep" width="100%" />
 
-Reranking a hybrid first stage with `ms-marco-MiniLM-L-6-v2` costs **−0.029 nDCG@10 on SciFact and
+Reranking a hybrid first stage with `ms-marco-MiniLM-L-6-v2` costs **−0.028 nDCG@10 on SciFact and
 −0.005 on NFCorpus** at depth 50, and the loss grows with depth. Blending
 `w·minmax(CE) + (1−w)·minmax(first stage)` instead of replacing the first-stage order changes the
 picture:
@@ -124,7 +125,7 @@ picture:
 | | w (tuned on train) | hybrid RRF | rerank (pure CE, @50) | **blended @50** |
 |---|---:|---:|---:|---:|
 | SciFact | 0.15 | 0.722 | 0.694 | **0.729** |
-| NFCorpus | 0.50 | 0.362 | 0.356 | **0.366** |
+| NFCorpus | 0.50 | 0.362 | 0.357 | **0.367** |
 
 The service uses the blended reranker, with per-collection weights loaded from these results.
 
@@ -155,10 +156,11 @@ M=16, efConstruction=200.
 
 <img src="docs/assets/latency.png" alt="Per-stage latency dot plot on a log scale" width="100%" />
 
-Retrieval without reranking costs **22.6 ms p50** (SciFact) and **33.3 ms** (NFCorpus), dominated by
+Retrieval without reranking costs **32.7 ms p50** (SciFact) and **20.9 ms** (NFCorpus), dominated by
 query encoding. BM25, HNSW and fusion each take under 1 ms. The cross-encoder over 50 candidates adds
-170–230 ms. These timings were taken on an RTX 3080 that was concurrently running another training
-job, so treat them as upper bounds.
+106–132 ms. These timings were taken on a desktop RTX 3080 that other processes were also using, and
+they vary from run to run (an earlier run measured 22.6 ms and 33.3 ms for the same two
+configurations), so treat them as rough upper bounds.
 
 ### End-to-end claim verification (SciFact dev)
 

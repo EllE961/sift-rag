@@ -261,7 +261,7 @@ def environment() -> dict[str, Any]:
         "torch": torch.__version__,
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
         "cpu": platform.processor(),
-        "note": "GPU shared with another training job during measurement; latencies are conservative.",
+        "note": "Desktop GPU that other processes may also be using; latencies vary between runs and are upper bounds.",
     }
 
 
