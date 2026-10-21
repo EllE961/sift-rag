@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sift — evidence retrieval</title>
+  <meta name="description" content="Sift: hybrid retrieval, reranking and grounded, span-cited answers." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0d10'/%3E%3Cg stroke='%23e8b44c' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M7 10h18M9.5 16h13M12 22h8'/%3E%3C/g%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="#ask" aria-label="Sift home">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h16M6.5 12h11M9 17h6" />
+      </svg>
+      <span class="brand-name">Sift</span>
+    </a>
+
+    <div class="picker" id="collection-picker">
+      <button class="picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span class="picker-label">Collection</span>
+        <span class="picker-value" data-value>scifact</span>
+        <svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+      </button>
+      <div class="picker-menu" role="listbox" hidden></div>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <a role="tab" href="#ask" data-view="ask">Ask</a>
+      <a role="tab" href="#trace" data-view="trace">Trace</a>
+      <a role="tab" href="#map" data-view="map">Map</a>
+      <a role="tab" href="#eval" data-view="eval">Evaluate</a>
+      <a role="tab" href="#ingest" data-view="ingest">Ingest</a>
+      <span class="tab-ink" aria-hidden="true"></span>
+    </nav>
+
+    <div class="status" id="status">
+      <span class="status-item" data-device>—</span>
+      <span class="status-item" data-llm><i class="dot"></i><span>LLM</span></span>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================================================================ ASK -->
+    <section class="view" id="view-ask" data-view="ask">
+      <form class="query" id="query-form" autocomplete="off">
+        <div class="query-field">
+          <svg class="query-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M5 10h10M7.5 14h5" /></svg>
+          <input id="query-input" name="q" type="text" spellcheck="false"
+                 placeholder="Ask the literature — e.g. “Does vitamin D deficiency raise the risk of multiple sclerosis?”" />
+          <kbd class="hint">↵</kbd>
+        </div>
+        <div class="query-controls">
+          <div class="segmented" id="mode-control" role="radiogroup" aria-label="Retrieval mode">
+            <button type="button" role="radio" data-mode="bm25">Lexical</button>
+            <button type="button" role="radio" data-mode="dense">Dense</button>
+            <button type="button" role="radio" data-mode="hybrid">Hybrid</button>
+            <button type="button" role="radio" data-mode="hybrid_rerank">Hybrid + rerank</button>
+          </div>
+          <div class="segmented small" id="gen-control" role="radiogroup" aria-label="Answer generator">
+            <button type="button" role="radio" data-gen="auto">Claude</button>
+            <button type="button" role="radio" data-gen="extractive">Offline</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="sieve-strip" id="sieve-strip" hidden></div>
+
+      <div class="ask-empty" id="ask-empty">
+        <p class="eyebrow">Try a claim from SciFact</p>
+        <div class="suggestions" id="suggestions"></div>
+        <div class="anatomy">
+          <p class="eyebrow">How an answer is made <span class="anatomy-note" id="anatomy-note"></span></p>
+          <ol class="anatomy-steps" id="anatomy-steps">
+            <li data-stage="bm25"><i class="mesh lexical"></i><b>BM25</b><span>Exact-term evidence from an inverted index over Porter-stemmed terms.</span><em></em></li>
+            <li data-stage="dense"><i class="mesh dense"></i><b>Dense · HNSW</b><span>Meaning over wording: bge-small embeddings searched through a navigable small-world graph.</span><em></em></li>
+            <li data-stage="fusion"><i class="mesh fusion"></i><b>Fusion</b><span>Reciprocal-rank fusion merges both lists without calibrating their scores.</span><em></em></li>
+            <li data-stage="rerank"><i class="mesh rerank"></i><b>Rerank</b><span>A cross-encoder reads query and passage together; blended with the fused score.</span><em></em></li>
+            <li data-stage="answer"><i class="mesh answer"></i><b>Answer</b><span>Claude answers from the top five, citing exact character spans of the sources.</span><em></em></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="ask-grid" id="ask-grid" hidden>
+        <article class="answer panel">
+          <header class="panel-head">
+            <h2>Answer</h2>
+            <span class="meta" id="answer-meta"></span>
+          </header>
+          <div class="notice" id="answer-notice" hidden></div>
+          <div class="answer-body prose" id="answer-body" aria-live="polite"></div>
+        </article>
+        <aside class="sources">
+          <header class="panel-head flush">
+            <h2>Sources</h2>
+            <span class="meta" id="sources-meta"></span>
+          </header>
+          <ol class="source-list" id="source-list"></ol>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============================================================== TRACE -->
+    <section class="view" id="view-trace" data-view="trace" hidden>
+      <div class="view-empty" data-empty>
+        <p class="eyebrow">No trace yet</p>
+        <p>Run a query in <a href="#ask">Ask</a> — every stage of the pipeline is recorded here.</p>
+      </div>
+      <div class="trace" data-content hidden>
+        <div class="trace-head">
+          <div>
+            <p class="eyebrow">Query</p>
+            <h2 class="trace-query" id="trace-query"></h2>
+          </div>
+          <div class="trace-total" id="trace-total"></div>
+        </div>
+        <div class="funnel" id="funnel"></div>
+        <div class="trace-grid">
+          <section class="panel">
+            <header class="panel-head"><h3>Rank flow</h3><span class="meta">How each document moved through the sieve · hover a thread</span></header>
+            <div class="chart" id="rankflow"></div>
+            <ul class="flow-key">
+              <li><i class="k-final"></i><span>Bright thread: one of the final results, labelled with its final rank</span></li>
+              <li><i class="k-other"></i><span>Faint thread: in some stage's top 10, but not passed to the reader</span></li>
+              <li><i class="k-out"></i><span><b>out</b> = outside that stage's top 15, or not retrieved by it at all</span></li>
+            </ul>
+          </section>
+          <section class="panel">
+            <header class="panel-head"><h3>Latency waterfall</h3><span class="meta">Wall-clock per stage, this query</span></header>
+            <div class="chart" id="waterfall"></div>
+            <header class="panel-head sub"><h3>Score distributions</h3><span class="meta">Candidates per stage · ticks = final results</span></header>
+            <div class="chart multiples" id="scoredist"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ MAP -->
+    <section class="view" id="view-map" data-view="map" hidden>
+      <div class="map-wrap">
+        <canvas id="map-canvas" aria-label="Embedding map of the collection"></canvas>
+        <div class="map-tooltip" id="map-tooltip" hidden></div>
+        <div class="map-toolbar">
+          <button type="button" class="icon-btn" id="map-reset" title="Reset view">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M2.5 2.5v2.4h2.4" /></svg>
+          </button>
+          <span class="map-hint">Drag to pan · scroll to zoom</span>
+        </div>
+        <div class="map-empty" id="map-empty" hidden></div>
+      </div>
+      <aside class="map-side panel">
+        <header class="panel-head"><h3>Embedding map</h3></header>
+        <p class="side-copy">Every abstract, embedded with <span class="mono">bge-small</span> and laid out with t-SNE. Colours and labels are k-means topics, named by their most distinctive title words. Hover a topic to isolate it.</p>
+        <div class="map-legend">
+          <span><i class="lg-point"></i>Document (colour = topic)</span>
+          <span><i class="lg-hit"></i>Retrieved</span>
+          <span><i class="lg-query"></i>Query (approx.)</span>
+        </div>
+        <h4 class="side-title">Topics</h4>
+        <ul class="cluster-list" id="cluster-list"></ul>
+        <h4 class="side-title">Current results</h4>
+        <ol class="map-hits" id="map-hits"><li class="muted">Ask a question to see where its evidence lives.</li></ol>
+      </aside>
+    </section>
+
+    <!-- =============================================================== EVAL -->
+    <section class="view" id="view-eval" data-view="eval" hidden>
+      <div class="eval" id="eval-root">
+        <div class="skeleton-block"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================= INGEST -->
+    <section class="view" id="view-ingest" data-view="ingest" hidden>
+      <div class="ingest-grid">
+        <div class="ingest-left">
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="file-input" multiple accept=".txt,.md,.markdown,.html,.htm,.pdf" hidden />
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" /></svg>
+            <strong>Drop documents</strong>
+            <span>PDF, Markdown, HTML or text · chunked, embedded and indexed into <span class="mono">workspace</span></span>
+          </label>
+          <div class="ingest-options">
+            <label>Chunker
+              <div class="segmented small" id="chunker-control" role="radiogroup">
+                <button type="button" data-chunker="fixed">Fixed</button>
+                <button type="button" data-chunker="recursive">Recursive</button>
+                <button type="button" data-chunker="sentence">Sentence</button>
+                <button type="button" data-chunker="semantic">Semantic</button>
+              </div>
+            </label>
+            <label class="range"><span>Chunk size · <output id="chunk-size-out">160</output> words</span>
+              <input type="range" id="chunk-size" min="40" max="400" step="10" value="160" />
+            </label>
+          </div>
+          <div class="panel">
+            <header class="panel-head"><h3>Workspace</h3><span class="meta" id="ws-meta"></span></header>
+            <ul class="ws-list" id="ws-list"><li class="muted">Nothing ingested yet.</li></ul>
+          </div>
+        </div>
+        <div class="ingest-right panel">
+          <header class="panel-head">
+            <h3>Chunking, side by side</h3>
+            <span class="meta">Same document, four strategies · every chunk maps to exact character offsets</span>
+          </header>
+          <div class="chunk-compare" id="chunk-compare">
+            <div class="view-empty inline">
+              <p class="eyebrow">Paste or drop a document</p>
+              <textarea id="chunk-text" placeholder="…or paste text here to compare chunkers without ingesting."></textarea>
+              <button type="button" class="btn" id="chunk-preview">Compare chunkers</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
