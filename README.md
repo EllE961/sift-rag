@@ -40,10 +40,10 @@ native citations, so every sentence of an answer points at an exact character sp
   trace (latency waterfall, rank-flow threads, score distributions), an embedding map of the corpus,
   an evaluation dashboard, and side-by-side chunking comparisons.
 
-> **About the end-to-end numbers.** The claim-verification results below use an offline NLI verifier, so
-> the whole benchmark runs without an API key. The Claude-backed evaluation uses the same harness and is
-> tested against the SDK through a mock transport; run it with
-> `python -m sift.eval claims --verifier claude` (responses are cached on disk).
+The claim-verification results below come from an offline NLI verifier, so the whole benchmark runs
+without an API key. The Claude-backed evaluation uses the same harness, is tested against the SDK
+through a mock transport, and runs with `python -m sift.eval claims --verifier claude` (responses are
+cached on disk).
 
 ---
 
