@@ -4,8 +4,12 @@ recorded-shape SSE stream — no network, no API key."""
 
 import json
 
-import httpx
 import pytest
+
+try:  # anthropic>=1.0 is built on httpx2; older releases use httpx
+    import httpx2 as httpx
+except ImportError:
+    import httpx
 
 from sift.generate import (
     FALLBACK_BETA,
