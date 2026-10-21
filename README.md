@@ -7,10 +7,10 @@
 Sift combines BM25, a from-scratch HNSW index, rank fusion, cross-encoder reranking and Claude's
 native citations, so every sentence of an answer points at an exact character span of its source.
 
-![tests](https://img.shields.io/badge/tests-172%20passing-0ca30c?style=flat-square)
-![python](https://img.shields.io/badge/python-3.10%2B-3987e5?style=flat-square)
-![ruff](https://img.shields.io/badge/lint-ruff-9085e9?style=flat-square)
-![license](https://img.shields.io/badge/license-MIT-85857f?style=flat-square)
+![python](https://img.shields.io/badge/python-3.10%2B-1f1d1b?style=flat-square&labelColor=0d0c0b)
+![tests](https://img.shields.io/badge/tests-172%20passing-3987e5?style=flat-square&labelColor=0d0c0b)
+![ruff](https://img.shields.io/badge/lint-ruff-9085e9?style=flat-square&labelColor=0d0c0b)
+![license](https://img.shields.io/badge/license-MIT-1f1d1b?style=flat-square&labelColor=0d0c0b)
 
 <img src="docs/assets/ui-ask.png" alt="Sift answering a SciFact claim: streamed answer with citation chips on the left, ranked sources with highlighted cited spans and per-stage ranks on the right" width="100%" />
 
